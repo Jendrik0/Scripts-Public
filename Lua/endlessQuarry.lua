@@ -5,7 +5,7 @@
 local CHEST_SLOT = 16
 local FUEL_SLOT = 15
 local MIN_FUEL = 500  -- Minimum fuel level before refueling
-local STRIP_WIDTH = 3  -- Number of blocks between strip lanes
+local STRIP_WIDTH = 3  -- Blocks between strip lanes
 
 -- Initial setup
 turtle.select(1)
@@ -20,7 +20,7 @@ function checkSpecialSlots()
     end
 end
 
--- Modified refuel function
+-- Improved refuel function
 function refuel()
     turtle.select(FUEL_SLOT)
     while turtle.getFuelLevel() < MIN_FUEL do
@@ -28,23 +28,24 @@ function refuel()
             print("Need more fuel in slot "..FUEL_SLOT)
             error("Out of fuel", 0)
         end
-        turtle.refuel(1)
+        local needed = math.ceil((MIN_FUEL - turtle.getFuelLevel()) / 80)
+        turtle.refuel(math.min(needed, turtle.getItemCount(FUEL_SLOT)))
     end
     turtle.select(1)
 end
 
--- Improved inventory management
+-- Inventory management with 2 free slots
 function shouldEmpty()
     local used = 0
-    for i=1,14 do  -- Only check regular slots
+    for i=1,14 do
         if turtle.getItemCount(i) > 0 then used = used + 1 end
     end
-    return used >= 14  -- Keep 2 slots free
+    return used >= 12  -- Keep 2 slots free
 end
 
 function emptyInventory()
     turtle.select(CHEST_SLOT)
-    turtle.placeUp()  -- Place ender chest above
+    turtle.placeUp()
     for i=1,14 do
         turtle.select(i)
         turtle.dropUp()
@@ -54,24 +55,20 @@ function emptyInventory()
     turtle.select(1)
 end
 
--- Mining functions
+-- Proper column mining with depth tracking
 function mineColumn()
-    -- Mine down to bedrock
+    local depth = 0
     while turtle.digDown() do
         turtle.down()
-        if turtle.detectDown() then
-            turtle.digDown()
-        else
-            break  -- Bedrock reached
-        end
+        depth = depth + 1
     end
-    
     -- Return to original height
-    while not turtle.detectUp() do
+    for i=1,depth do
         turtle.up()
     end
 end
 
+-- Forward movement with digging
 function moveForward()
     while not turtle.forward() do
         turtle.dig()
@@ -79,7 +76,7 @@ function moveForward()
     end
 end
 
--- Main mining pattern
+-- Corrected strip mining pattern
 function mineStrip()
     while true do
         checkSpecialSlots()
@@ -93,22 +90,24 @@ function mineStrip()
         turtle.digUp()
         
         -- Check inventory every 16 blocks
-        if math.fmod(currentLane, 16) == 0 and shouldEmpty() then
+        if currentLane % 16 == 0 and shouldEmpty() then
             emptyInventory()
         end
         
-        -- Switch direction when strip width reached
+        -- Handle strip width spacing
         if currentLane >= STRIP_WIDTH then
-            -- Turn around
+            -- Turn around and return to start
             turtle.turnRight()
             turtle.turnRight()
-            
-            -- Move to next strip level
             for i=1,STRIP_WIDTH do
                 moveForward()
             end
+            
+            -- Move to next strip with proper spacing
             turtle.turnRight()
-            moveForward()
+            for i=1,STRIP_WIDTH do
+                moveForward()
+            end
             turtle.turnRight()
             
             currentLane = 0
